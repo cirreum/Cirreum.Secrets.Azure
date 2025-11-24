@@ -11,8 +11,6 @@ public sealed class AzureKeyVaultRegistrar
 		AzureKeyVaultSettings,
 		AzureKeyVaultInstanceSettings> {
 
-	public override ProviderType ProviderType => ProviderType.Secrets;
-
 	public override string ProviderName => "Azure";
 
 	public override string[] ActivitySourceNames { get; } = [$"{typeof(SecretClient).Namespace}.*"];

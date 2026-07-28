@@ -9,7 +9,6 @@ using Microsoft.Extensions.Configuration;
 
 internal static class KeyVaultRegistrationExtensions {
 
-
 	public static void AddAzureKeyVaultClient(
 		this IConfigurationBuilder builder,
 		AzureKeyVaultInstanceSettings settings) {
@@ -25,23 +24,39 @@ internal static class KeyVaultRegistrationExtensions {
 	/// <summary>
 	/// Creates a SecretClient instance using the provided settings.
 	/// </summary>
-	/// <exception cref="InvalidOperationException">Thrown when VaultUri is missing.</exception>
+	/// <exception cref="InvalidOperationException">Thrown when Endpoint is missing or cannot be parsed as a valid Uri.</exception>
 	private static SecretClient GetSecretClient(
 		this AzureKeyVaultInstanceSettings settings) {
 
-		TokenCredential? credentials = null;
-		if (!string.IsNullOrWhiteSpace(settings.Identifier)) {
-			credentials = new DefaultAzureCredential(new DefaultAzureCredentialOptions {
-				TenantId = settings.Identifier
-			});
-		}
-
 		if (settings.VaultUri is null || string.IsNullOrWhiteSpace(settings.VaultUri.ToString())) {
-			var err = $"VaultUri is missing. It should be provided from the Endpoint. Value: '{settings.Endpoint}'";
+			var err = $"Endpoint is missing or could not be parsed as a valid Uri. Value: '{settings.Endpoint}'";
 			throw new InvalidOperationException(err);
 		}
 
-		return new SecretClient(settings.VaultUri, credentials);
+		return new SecretClient(settings.VaultUri, settings.GetCredential());
+
+	}
+
+	private static TokenCredential GetCredential(
+		this AzureKeyVaultInstanceSettings settings) {
+
+		var tenantId = string.IsNullOrWhiteSpace(settings.Identifier) ? null : settings.Identifier;
+
+		return settings.CredentialMode switch {
+
+			CredentialMode.ManagedIdentity => new ManagedIdentityCredential(
+				string.IsNullOrWhiteSpace(settings.ManagedIdentityClientId)
+					? ManagedIdentityId.SystemAssigned
+					: ManagedIdentityId.FromUserAssignedClientId(settings.ManagedIdentityClientId)),
+
+			CredentialMode.DevChain => new ChainedTokenCredential(
+				new VisualStudioCredential(new VisualStudioCredentialOptions { TenantId = tenantId }),
+				new AzureCliCredential(new AzureCliCredentialOptions { TenantId = tenantId }),
+				new AzurePowerShellCredential(new AzurePowerShellCredentialOptions { TenantId = tenantId })),
+
+			_ => new DefaultAzureCredential(new DefaultAzureCredentialOptions { TenantId = tenantId })
+
+		};
 
 	}
 

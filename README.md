@@ -17,7 +17,7 @@ This package implements the `SecretsProviderRegistrar` pattern to automatically 
 ## Key Features
 
 - **Seamless Integration**: Drop-in Azure Key Vault support for Cirreum-based applications
-- **Azure Identity**: Uses `DefaultAzureCredential` with optional tenant-specific authentication
+- **Azure Identity**: `CredentialMode` selects `DefaultAzureCredential`, a deterministic `ManagedIdentityCredential`, or a local-development credential chain, with optional tenant-specific authentication
 - **Flexible Configuration**: Two-tier settings model for provider and instance-level configuration
 - **Activity Tracing**: Built-in support for distributed tracing with Azure SDK telemetry
 - **Production Ready**: Follows Microsoft.Extensions.* patterns and conventions
@@ -39,12 +39,36 @@ services.AddSecretsProvider<AzureKeyVaultRegistrar>(configuration =>
 });
 ```
 
+## Credential Modes
+
+`AzureKeyVaultInstanceSettings.CredentialMode` selects how the instance authenticates:
+
+| Mode | Credential | When to use |
+| --- | --- | --- |
+| `Default` | `DefaultAzureCredential` | General-purpose; tries the full credential chain |
+| `ManagedIdentity` | `ManagedIdentityCredential` | Production; deterministic, no chain fallback |
+| `DevChain` | Visual Studio → Azure CLI → Azure PowerShell | Local development only |
+
+```csharp
+settings.Instances.Add(new AzureKeyVaultInstanceSettings
+{
+    Endpoint = "https://your-vault.vault.azure.net/",
+    CredentialMode = CredentialMode.ManagedIdentity,
+    ManagedIdentityClientId = "<user-assigned-client-id>" // Optional; omit for system-assigned
+});
+```
+
+`Identifier` sets the tenant ID and applies to `Default` and `DevChain`. It has no effect under
+`ManagedIdentity`, since a managed identity's tenant is implicit to the resource it's attached to.
+
 ## Configuration
 
 The provider supports hierarchical configuration through:
 
 - **`AzureKeyVaultSettings`**: Provider-level settings
-- **`AzureKeyVaultInstanceSettings`**: Individual Key Vault instance settings including vault URI and tenant configuration
+- **`AzureKeyVaultInstanceSettings`**: Individual Key Vault instance settings. Set `Endpoint` to the vault's
+  URI (appears as "DNS Name" in the Azure portal) — it's parsed into the vault URI used by the underlying
+  `SecretClient` internally.
 
 ## Contribution Guidelines
 

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking
+
+- **Credential configuration moves to the shared nested `Credential` block** that
+  `Cirreum.SecretsProvider` 1.1.0 surfaces on the instance settings base. The provider-local
+  `CredentialMode` enum and the flat `CredentialMode` / `ManagedIdentityClientId` properties on
+  `AzureKeyVaultInstanceSettings` are removed, and the mode value `DevChain` is renamed
+  `Developer`. **Unmigrated flat configuration keys bind to nothing** — the instance silently
+  falls back to default-chain behavior — so migrate configuration together with the package
+  update. See `MIGRATION-v2.md`.
+
+### Added
+
+- `Default` mode now honors `Credential.IdentityId`, pinning the default chain's managed-identity
+  leg to a specific user-assigned identity. 1.1.0 only consumed the client id under
+  `ManagedIdentity`.
+
+### Changed
+
+- An unrecognized `CredentialMode` value now fails at startup with `InvalidOperationException`
+  instead of silently degrading to the default chain, so a future mode configured against a
+  version that has not mapped it is loud rather than wrong.
+
 ## [1.1.0] - 2026-07-28
 
 ### Added

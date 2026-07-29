@@ -17,7 +17,7 @@ This package implements the `SecretsProviderRegistrar` pattern to automatically 
 ## Key Features
 
 - **Seamless Integration**: Drop-in Azure Key Vault support for Cirreum-based applications
-- **Azure Identity**: `CredentialMode` selects `DefaultAzureCredential`, a deterministic `ManagedIdentityCredential`, or a local-development credential chain, with optional tenant-specific authentication
+- **Azure Identity**: the nested `Credential` block selects `DefaultAzureCredential`, a deterministic `ManagedIdentityCredential`, or developer tooling credentials, with optional tenant-specific authentication
 - **Flexible Configuration**: Two-tier settings model for provider and instance-level configuration
 - **Activity Tracing**: Built-in support for distributed tracing with Azure SDK telemetry
 - **Production Ready**: Follows Microsoft.Extensions.* patterns and conventions
@@ -41,24 +41,40 @@ services.AddSecretsProvider<AzureKeyVaultRegistrar>(configuration =>
 
 ## Credential Modes
 
-`AzureKeyVaultInstanceSettings.CredentialMode` selects how the instance authenticates:
+The nested `Credential` block (shared across Cirreum providers) selects how the instance authenticates:
 
 | Mode | Credential | When to use |
 | --- | --- | --- |
 | `Default` | `DefaultAzureCredential` | General-purpose; tries the full credential chain |
 | `ManagedIdentity` | `ManagedIdentityCredential` | Production; deterministic, no chain fallback |
-| `DevChain` | Visual Studio → Azure CLI → Azure PowerShell | Local development only |
+| `Developer` | Visual Studio → Azure CLI → Azure PowerShell | Local runs as the signed-in developer |
 
 ```csharp
 settings.Instances.Add(new AzureKeyVaultInstanceSettings
 {
     Endpoint = "https://your-vault.vault.azure.net/",
-    CredentialMode = CredentialMode.ManagedIdentity,
-    ManagedIdentityClientId = "<user-assigned-client-id>" // Optional; omit for system-assigned
+    Credential = new()
+    {
+        Mode = CredentialMode.ManagedIdentity,
+        IdentityId = "<user-assigned-client-id>" // Optional; omit for system-assigned
+    }
 });
 ```
 
-`Identifier` sets the tenant ID and applies to `Default` and `DevChain`. It has no effect under
+```json
+"Instances": {
+  "default": {
+    "Endpoint": "https://your-vault.vault.azure.net/",
+    "Credential": { "Mode": "ManagedIdentity", "IdentityId": "<user-assigned-client-id>" }
+  }
+}
+```
+
+`IdentityId` selects a user-assigned managed identity: under `ManagedIdentity` it picks the
+identity directly, and under `Default` it pins the chain's managed-identity leg. It is ignored by
+`Developer`.
+
+`Identifier` sets the tenant ID and applies to `Default` and `Developer`. It has no effect under
 `ManagedIdentity`, since a managed identity's tenant is implicit to the resource it's attached to.
 
 ## Configuration

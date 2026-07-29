@@ -4,6 +4,7 @@ using Azure.Core;
 using Azure.Extensions.AspNetCore.Configuration.Secrets;
 using Azure.Identity;
 using Azure.Security.KeyVault.Secrets;
+using Cirreum.Providers.Configuration;
 using Cirreum.Secrets.Configuration;
 using Microsoft.Extensions.Configuration;
 
@@ -41,20 +42,28 @@ internal static class KeyVaultRegistrationExtensions {
 		this AzureKeyVaultInstanceSettings settings) {
 
 		var tenantId = string.IsNullOrWhiteSpace(settings.Identifier) ? null : settings.Identifier;
+		var credential = settings.Credential ?? new CredentialSettings();
+		var identityId = string.IsNullOrWhiteSpace(credential.IdentityId) ? null : credential.IdentityId;
 
-		return settings.CredentialMode switch {
+		return credential.Mode switch {
+
+			CredentialMode.Default => new DefaultAzureCredential(new DefaultAzureCredentialOptions {
+				TenantId = tenantId,
+				ManagedIdentityClientId = identityId,
+			}),
 
 			CredentialMode.ManagedIdentity => new ManagedIdentityCredential(
-				string.IsNullOrWhiteSpace(settings.ManagedIdentityClientId)
+				identityId is null
 					? ManagedIdentityId.SystemAssigned
-					: ManagedIdentityId.FromUserAssignedClientId(settings.ManagedIdentityClientId)),
+					: ManagedIdentityId.FromUserAssignedClientId(identityId)),
 
-			CredentialMode.DevChain => new ChainedTokenCredential(
+			CredentialMode.Developer => new ChainedTokenCredential(
 				new VisualStudioCredential(new VisualStudioCredentialOptions { TenantId = tenantId }),
 				new AzureCliCredential(new AzureCliCredentialOptions { TenantId = tenantId }),
 				new AzurePowerShellCredential(new AzurePowerShellCredentialOptions { TenantId = tenantId })),
 
-			_ => new DefaultAzureCredential(new DefaultAzureCredentialOptions { TenantId = tenantId })
+			_ => throw new InvalidOperationException(
+				$"CredentialMode '{credential.Mode}' is not supported by the Azure Key Vault provider."),
 
 		};
 

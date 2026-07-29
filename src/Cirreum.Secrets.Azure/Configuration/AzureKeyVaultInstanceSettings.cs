@@ -20,17 +20,6 @@ public class AzureKeyVaultInstanceSettings
 	/// </summary>
 	protected internal Uri? VaultUri { get; set; }
 
-	/// <summary>
-	/// Determines which credential is used to authenticate to the vault.
-	/// </summary>
-	public CredentialMode CredentialMode { get; set; } = CredentialMode.Default;
-
-	/// <summary>
-	/// The client ID of a user-assigned managed identity. Only used when <see cref="CredentialMode"/> is
-	/// <see cref="CredentialMode.ManagedIdentity"/>. If not supplied, the system-assigned managed identity is used.
-	/// </summary>
-	public string? ManagedIdentityClientId { get; set; }
-
 	public override void ParseEndPoint() {
 		if (!string.IsNullOrEmpty(this.Endpoint) &&
 			Uri.TryCreate(this.Endpoint, UriKind.Absolute, out var uri)) {
